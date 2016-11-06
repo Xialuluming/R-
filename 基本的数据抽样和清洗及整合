@@ -1,0 +1,56 @@
+setwd('D:\\R_edu\\data')
+accepts <- read.csv("accepts.csv")
+library(sampling)
+table(accepts$bad_ind)
+
+sample_stra=strata(accepts,stratanames="bad_ind",
+                   size=c(round(1197*0.3),round(4648*0.3)),method="srswor")
+#训练集和验证集
+testset=getdata(accepts,sample_stra$ID_unit)
+traintest=getdata(accepts,-sample_stra$ID_unit)
+
+概化处理和WOE转换
+setwd('D:\\R_edu\\data')
+accepts <- read.csv("accepts.csv")
+library(sqldf)
+table(accepts$loan_term)
+freq<-data.frame(table(accepts$loan_term))
+names(freq)<-c("loan_term","freq")
+accepts1<-sqldf("select a.*,b.freq
+                from accepts as a
+                left join freq as b on a.loan_term=b.loan_term")
+accepts1$loan_term<-as.character(accepts1$loan_term)
+accepts1[accepts1$freq<10,]$loan_term<-mean(accepts$loan_term)
+
+freq<-data.frame(table(accepts1$loan_term,accepts$bad_ind))
+freq$Var2<-paste("group",freq$Var2,sep="")
+library(reshape)
+freq_w<- cast(freq,Var1~Var2)
+freq_sum<-sqldf("select sum(group0) as group0_sum,
+                sum(group1)  as group1_sum
+                from freq_w as a")
+freq_p<-sqldf("select a.*,a.group0/(b.group0_sum+0.0) as group0_p,
+              a.group1/(b.group1_sum+0.0) as group1_p
+              from freq_w as a, freq_sum as b")
+freq_p$perc<-freq_p$group1/(freq_p$group0+freq_p$group1)
+freq_p$woe<-log(freq_p$group1_p/freq_p$group0_p)
+accepts2<-sqldf("select a.*,b.woe as loan_term_woe
+                from accepts1 as a
+                left join freq_p as b on a.loan_term=b.Var1")
+              
+主成分分析         
+              setwd("D:\\R_edu\\data")
+orgData<-read.csv("profile_bank.csv")
+names(orgData)
+orgData<-orgData[,2:5]
+pr1<-princomp(orgData,cor=TRUE)
+pr1
+summary(pr1,loadings=TRUE)
+screeplot(pr1,type="lines")
+#选择第二到第五个变量，经过分析，所以选择三个变量是合适的
+library(psych)
+pr2<-principal(orgData,nfactors=3,rotate="varimax",covar=F,score=TRUE)
+pr2
+#第一个变量与CNT_POS，CNT_ATM有关
+#第二个变量与CNT_TBM有关
+#第三个变量与CNT_CSC有关
