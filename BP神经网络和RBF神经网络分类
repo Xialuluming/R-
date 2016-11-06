@@ -1,0 +1,96 @@
+#数据导入与清洗
+setwd('D:\\R_edu\\data')
+teleco<-read.csv("teleco.csv")
+teleco<-na.omit(teleco)
+attach(teleco)
+#BP神经网络
+#1.随机抽样，建立训练集和验证集
+#建立训练集和验证集
+#清洗数据
+teleco$churn<-as.numeric(teleco$churn)
+teleco$churn[teleco$churn==1]=0
+teleco$churn[teleco$churn==2]=1
+teleco$longten<-gsub('[,]','',teleco$longten)
+teleco$tollten<-gsub('[,]','',teleco$tollten)
+teleco$equipten<-gsub('[,]','',teleco$equipten)
+teleco$cardten<-gsub('[,]','',teleco$cardten)
+teleco$wireten<-gsub('[,]','',teleco$wireten)
+teleco[,c(-16:-12)]<-as.numeric(unlist(teleco[,c(-16:-12)]))
+teleco[,6]<-as.numeric(unlist(teleco[,6]))
+#将因子变量变为数字
+teleco<-as.numeric(teleco)
+teleco[,c(1:35)]<-as.numeric(unlist(teleco[,c(1:35)]))
+teleco[,c(1:35)]<-data.matrix(teleco[,c(1:35)])
+summary(teleco)
+#1=yes,0=no
+#建立测试集和训练集
+set.seed(100)
+select<-sample(1:nrow(teleco),length(employ)*0.7)
+train=teleco[select,]
+test=teleco[-select,]
+attach(train)
+#进行中心标准化
+train[,1:35]=scale(train[,1:35])
+test[,1:35]=scale(test[,1:35])
+#2.开始实现
+library(nnet)
+model_nnet<-nnet(churn~., linout = F,size = 8, decay = 0.01, maxit = 300,data = train) 
+#对分类数据预测需要加上y参数 
+pre.forest=predict(model_nnet, test) 
+out=pre.forest
+out[out<0.5]=0
+out[out>=0.5]=1
+#计算准确率
+rate2<-sum(out==test$y)/length(test$y)
+
+#做出概率预测
+train$lg_nnet_p<-predict(model_nnet, train) 
+test$lg_nnet_p<-predict(model_nnet, test) 
+
+#绘制ROC曲线
+library(ROCR)
+pred_nnet_Tr <- prediction(train$lg_nnet_p, train$y)
+perf_nnet_Tr <- performance(pred_nnet_Tr,"tpr","fpr")
+
+pred_nnet_Te <- prediction(test$lg_nnet_p, test$y)
+perf_nnet_Te <- performance(pred_nnet_Te,"tpr","fpr")
+
+plot(perf_nnet_Tr,col='green',main="ROC of Models")
+plot(perf_nnet_Te, col='black',lty=2,add=TRUE);
+abline(0,1,lty=2,col='red')
+
+
+lr_m_auc<-round(as.numeric(performance(pred_nnet_Tr,'auc')@y.values),3)
+lr_m_str<-paste("Tran-AUC:",lr_m_auc,sep="")
+legend(0.3,0.45,c(lr_m_str),2:8)
+
+lr_m_auc<-round(as.numeric(performance(pred_nnet_Te,'auc')@y.values),3)
+lr_m_ste<-paste("Test-AUC:",lr_m_auc,sep="")
+legend(0.3,0.25,c(lr_m_ste),2:8)
+
+#RBF神经网络
+#极差标准化函数
+st_range <- function(x) { 
+  return((x - min(x)) / (max(x) - min(x)))
+}
+
+#极差标准化数据
+train[,1:35]<- as.data.frame(lapply(train[,1:35], st_range))
+test[,1:35]<- as.data.frame(lapply(test[,1:35], st_range))
+
+library("RSNNS") 
+x<-train[,1:35]
+y<-train[,36]
+
+model <- rbf(x, y, size=150, maxit=300,linOut=F,
+             initFunc = "RBF_Weights",
+             initFuncParams=c(-4, 4, 10, 0.5, 0),
+             learnFuncParams=c(1e-8, 0, 1e-8, 0.1, 0.8))
+
+plotIterativeError(model)
+#使用训练集做预测并绘制ROC曲线
+train_pred<-predict(model, train[,1:35])
+plotROC(T=train_pred, D=train[,25])
+#使用测试集做预测并绘制ROC曲线
+test_pred<-predict(model, test[,1:35])
+plotROC(T=test_pred, D=test[,36])
