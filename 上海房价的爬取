@@ -1,0 +1,34 @@
+library(RCurl)
+library(XML)
+res = data.frame()
+# i是页数，可根据实际情况进行调整
+for (i in 1:10) {
+  urli = paste("http://sh.lianjia.com/ershoufang/d", i, "s7", sep = "")
+  webi = getURL(urli, .encoding = "utf-8")
+  htmi = htmlParse(webi, encoding = "utf-8")
+  # 标题、链接
+  nodi = getNodeSet(htmi, path = "//div[@class='list-wrap']//div[@class='info-panel']//a[@name='selectDetail']")
+  biaoti = sapply(nodi, function(X) xmlGetAttr(X, "title"))
+  Encoding(biaoti) = "UTF-8"
+  lianjie = paste("http://sh.lianjia.com", sapply(nodi, function(X) xmlGetAttr(X, "href")), sep = "")
+  # 小区、户型、面积
+  nodi = getNodeSet(htmi, path = "//div[@class='list-wrap']//div[@class='where']//span")
+  xhmi = sapply(nodi, xmlValue)
+  xiaoqu = xhmi[(1:length(biaoti))*3 - 2]
+  huxingi = gsub("\\s+", "", xhmi[(1:length(biaoti))*3 - 1])
+  mianji = as.numeric(gsub("[^0-9]*$", "", xhmi[(1:length(biaoti))*3 - 0]))
+  # 区域、地段
+  nodi = getNodeSet(htmi, path = "//div[@class='list-wrap']//div[@class='other']//a")
+  qdi = sapply(nodi, xmlValue)
+  quyu = qdi[(1:length(biaoti))*2 - 1]
+  diduan = qdi[(1:length(biaoti))*2 - 0]
+  # 总价
+  nodi = getNodeSet(htmi, path = "//div[@class='list-wrap']//div[@class='price']/span[@class='num']")
+  zongjia = as.numeric(gsub("[^0-9]", "", sapply(nodi, xmlValue)))
+  # 单价
+  nodi = getNodeSet(htmi, path = "//div[@class='list-wrap']//div[@class='price-pre']")
+  danjia = as.numeric(gsub("[^0-9]", "", sapply(nodi, xmlValue)))
+  res = rbind(res, data.frame(biaoti, lianjie, xiaoqu, huxingi, mianji, quyu, diduan, zongjia, danjia, stringsAsFactors = FALSE))
+  Sys.sleep(1)
+}
+
