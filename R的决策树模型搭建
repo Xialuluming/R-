@@ -1,0 +1,94 @@
+手工计算决策树模型
+setwd("D:\\R_edu\\data1")
+orgData<-read.csv("date_data2.csv")
+attach(orgData)
+#查看orgData的属性
+summary(orgData)
+#将Dated改成分类变量
+orgData$Dated[orgData$Dated==1]<-"yes"
+orgData$Dated[orgData$Dated==0]<-"no"
+orgData$Dated<-as.factor(orgData$Dated)
+#income 以15500分箱
+table(income,Dated)
+Info = -log2(0.5)
+Info_income = 0.88*(-(50/88)*log2(50/88)-(38/88)*log2(38/88))+0.12*(-0.12*log2(0.12))
+Gain = Info-Info_income 
+spilt = -0.88*log2(0.88)-0.12*log2(0.12)
+Grain = Gain/spilt
+gini = 1-0.88*0.88-0.12*0.12
+
+#edueduclass 以2为界
+table(edueduclass,Dated)
+Info = -log2(0.5)
+Info_edueduclass = 0.85*(-(35/85)*log2(35/85)-(50/85)*log2(50/85))
+Gain = Info-Info_edueduclass
+spilt = -0.85*log2(0.85)-0.15*log2(0.15)
+Grain = Gain/spilt
+gini = 1-0.85*0.85-0.15*0.15
+
+#attractive,以51为届
+table(attractive,Dated)
+Info = -log2(0.5)
+Info_attractive = 0.56*(-(34/56)*log2(34/56)-(22/56)*log2(22/56))+0.44*(-(16/44)*log2(16/44)-(28/44)*log2(28/44))
+Gain = Info-Info_attractive
+spilt = -0.56*log2(0.56)-0.44*log2(0.44)
+Grain = Gain/spilt
+gini = 1-0.56*0.56-0.44*0.44
+
+#assets,以94为界
+table(assets,Dated)
+Info = -log2(0.5)
+Info_assets = 0.76*(-(50/76)*log2(50/76)-(26/76)*log2(26/76))
+Gain = Info-Info_assets
+spilt = -0.76*log2(0.76)-0.34*log2(0.34)
+Grain = Gain/spilt
+gini = 1-0.76*0.76-0.34*0.34
+
+
+#所以构建第一层的决策树
+#选择assets作为第一层变量
+#第二层选择edueduclass为变量
+
+两种不同决策树模型包的使用
+setwd("D:\\R_edu\\data1")
+orgData<-read.csv("date_data2.csv")
+attach(orgData)
+#查看orgData的属性
+summary(orgData)
+#将Dated改成分类变量
+orgData$Dated[orgData$Dated==1]<-"yes"
+orgData$Dated[orgData$Dated==0]<-"no"
+orgData$Dated<-as.factor(orgData$Dated)
+
+#建立C50模型
+library(C50)
+#调整参数
+tc<-C5.0Control(minCases = 2,winnow=F,CF=0.99,noGlobalPruning=T)
+#建模
+model <- C5.0(Dated ~income+attractive+assets+edueduclass,data=orgData,
+              trials=1,rules=F,control =tc )
+#画出图形
+plot(model)
+#生成规则
+rule <- C5.0(Dated ~income+attractive+assets+edueduclass,data=orgData,
+             trials=1,rules=T)
+summary( rule )
+
+#建立CART模型
+library(rpart)
+#设置前向剪枝的条件
+tc <- rpart.control(minsplit=1,minbucket=1,maxdepth=10,xval=5,cp=0.005)
+#建模
+rpart.mod=rpart(Dated ~income+attractive+assets+edueduclass,data=orgData,
+                parms = list(split = "gini"),method="class",control=tc)
+#图形展示
+library(rpart.plot)
+rpart.plot(rpart.mod,branch=1, extra=106, under=TRUE, faclen=0,
+           cex=0.8)
+#剪枝
+rpart.mod$cp
+plotcp(rpart.mod)
+rpart.mod.pru<-prune(rpart.mod, cp= rpart.mod$cptable[which.min(rpart.mod$cptable[,"xerror"]),"CP"])
+rpart.mod.pru$cp
+rpart.plot(rpart.mod.pru,branch=1, extra=106, under=TRUE, faclen=0,
+           cex=0.8, main="决策树")
