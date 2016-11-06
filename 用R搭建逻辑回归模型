@@ -1,0 +1,176 @@
+#数据导入与清洗
+setwd('D:\\R_edu\\data')
+teleco<-read.csv("teleco.csv")
+teleco<-na.omit(teleco)
+attach(teleco)
+#分类变量的相关关系
+table(churn)
+table(marital)
+table(ed)
+table(retire)
+table(gender)
+table(tollfree)
+table(equip)
+table(callcard)
+table(wireless)
+table(multline)
+table(voice)
+table(pager)
+table(internet)
+table(callwait)
+table(forward)
+table(confer)
+table(ebill)
+table(custcat)
+table(region)
+#列联表分析
+library(prettyR)
+xtab(~ churn + marital, data=teleco)
+chisq.test(x=churn,y=marital)#变量相关
+
+xtab(~ churn + ed, data=teleco)
+chisq.test(x=churn,y=ed)#变量相关
+
+xtab(~ churn + retire, data=teleco)
+chisq.test(x=churn,y=retire)#变量相关
+
+xtab(~ churn + gender, data=teleco)
+chisq.test(x=churn,y=gender)#变量不相关
+
+xtab(~ churn + tollfree, data=teleco)
+chisq.test(x=churn,y=tollfree)#变量不相关
+
+xtab(~ churn + equip, data=teleco)
+chisq.test(x=churn,y=equip)#变量相关
+
+xtab(~ churn + callcard, data=teleco)
+chisq.test(x=churn,y=callcard)#变量相关
+
+xtab(~ churn + wireless, data=teleco)
+chisq.test(x=churn,y=wireless)#变量相关
+
+xtab(~ churn + multline, data=teleco)
+chisq.test(x=churn,y=multline)#变量不相关
+
+xtab(~ churn + voice, data=teleco)
+chisq.test(x=churn,y=voice)#变量相关
+
+xtab(~ churn + pager, data=teleco)
+chisq.test(x=churn,y=pager)#变量相关
+
+xtab(~ churn + internet, data=teleco)
+chisq.test(x=churn,y=internet)#变量相关
+
+xtab(~ churn + forward, data=teleco)
+chisq.test(x=churn,y=forward)#变量不相关
+
+xtab(~ churn + callwait, data=teleco)
+chisq.test(x=churn,y=callwait)#变量相关
+
+xtab(~ churn + confer, data=teleco)
+chisq.test(x=churn,y=confer)#变量相关
+
+xtab(~ churn + ebill, data=teleco)
+chisq.test(x=churn,y=ebill)#变量相关
+
+xtab(~ churn + custcat, data=teleco)
+chisq.test(x=churn,y=custcat)#变量相关
+
+xtab(~ churn + region, data=teleco)
+chisq.test(x=churn,y=region)#变量不相关
+#逻辑回归
+#1.随机抽样，建立训练集和验证集
+#建立训练集和验证集
+#清洗数据
+teleco$churn<-as.numeric(teleco$churn)
+teleco$churn[teleco$churn==1]=0
+teleco$churn[teleco$churn==2]=1
+teleco$longten<-gsub('[,]','',teleco$longten)
+teleco$tollten<-gsub('[,]','',teleco$tollten)
+teleco$equipten<-gsub('[,]','',teleco$equipten)
+teleco$cardten<-gsub('[,]','',teleco$cardten)
+teleco$wireten<-gsub('[,]','',teleco$wireten)
+teleco[,c(-16:-12)]<-as.numeric(unlist(teleco[,c(-16:-12)]))
+teleco[,6]<-as.numeric(unlist(teleco[,6]))
+#1=yes,0=no
+
+#建立逻辑回归模型
+
+lg1<-glm(churn~region+marital+ed+retire+gender+tollfree+equip+callcard+wireless+multline+voice+
+           pager+internet+callwait+forward+confer+ebill+custcat+tenure+age+address+income+employ+reside+longmon+tollmon+equipmon
+         +cardmon+wiremon+longten+tollten+equipten+cardten+wireten+lninc,data = teleco,family=binomial())
+summary(lg3)
+
+##由summary中的p值知
+#"tenure","tollmon","tollten","equip","voice","internet","callcard","employ"可以保留
+#所以知
+teleco3<-teleco[,c("tenure","tollmon","tollten","equip","voice","internet","callcard","employ","churn")]
+lg<-glm(churn~tenure+tollmon+tollten+equip+voice+internet+callcard+employ,data = teleco3,family=binomial())
+anova(lg1,lg,test="Chisq")
+
+#由anova函数知卡方值0.29不显著，所以新模型的拟合度与老模型一样好
+
+#建立测试集和训练集
+set.seed(100)
+select<-sample(1:nrow(teleco3),length(employ)*0.7)
+train=teleco3[select,]
+test=teleco3[-select,]
+attach(train)
+
+lg_ms<-step(lg,direction = "both")
+summary(lg_ms)
+train$lg_p<-predict(lg_ms, train)
+summary(train$lg_p)
+train$p<-1/(1+exp(-1*train$lg_p))
+summary(train$p)
+
+library(car)
+vif(lg)
+
+#模型评估
+#对分类数据预测需要加上churn参数
+test$lg_p<-predict(lg_ms, test)
+test$p<-(1/(1+exp(-1*test$lg_p)))
+summary(test$p)
+test$out<-1
+test[test$p<0.2,]$out<-0
+table(test$churn,test$out)
+
+#计算准确率
+rate2<-sum(test$out==test$churn)/length(test$churn)
+
+#ROC曲线
+#新方法
+library(pROC)
+plot.roc(churn~p,data = train,col="1")->r1
+rocobjtr<- roc(train$churn, train$p)
+#Area under the curve: 0.8122
+auc(rocobjtr)
+lines.roc(churn~p,test,col='2')->r2
+rocobjte <- roc(test$churn, test$p)
+#Area under the curve: 0.8083
+auc(rocobjte)
+roc.test(r1,r2)
+
+#绘制洛伦兹曲线
+pred_Tr <- prediction(train$p, train$churn)
+tpr <- performance(pred_Tr,measure='tpr')@y.values[[1]]
+depth <- performance(pred_Tr,measure='rpp')@y.values[[1]]
+plot(depth,tpr,type='l',main='Lorenz图',ylab='查全率(tpr)',xlab='深度(depth)')
+
+#绘制累积提升度曲线
+library(ROCR)
+pred_Tr <- prediction(train$p, train$churn)
+lift <- performance(pred_Tr,measure='lift')@y.values[[1]]
+depth <- performance(pred_Tr,measure='rpp')@y.values[[1]]
+plot(depth,lift,type='l',main='lift图',ylab='lift',xlab='depth')
+
+#绘制K-S曲线
+pred_Tr <- prediction(train$p, train$churn)
+tpr <- performance(pred_Tr,measure='tpr')@y.values[[1]]
+fpr <- performance(pred_Tr,measure='fpr')@y.values[[1]]
+ks<-(tpr-fpr)
+depth <- performance(pred_Tr,measure='rpp')@y.values[[1]]
+plot(depth,ks,type='l',main='K-S曲线',ylab='KS值',xlab='深度(depth)')
+kslable<-paste("KS统计量:",max(ks),sep="")
+legend(0.3,0.2,c(kslable),2:8)
