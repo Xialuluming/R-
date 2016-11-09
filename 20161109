@@ -1,0 +1,25 @@
+#连接数据库
+library("RJDBC")
+drv<-JDBC("com.ibm.db2.jcc.DB2Driver","E:/DB2连接驱动/db2jcc4.jar")
+conn <- dbConnect(drv, )
+#显示数据库里所有表
+dbListTables(conn)
+a<-dbGetQuery(conn, "select name,cerno from e_pri_person where length(cerno) =15 group by cerno
+               union all select name,cerno from e_pri_person where length(cerno) =18 group by cerno")
+b<-dbGetQuery(conn, "select inv,cerno from e_inv_investment  where length(cerno) =15
+               union all select inv,cerno from e_inv_investment where length(cerno) =18")
+#连接a和b
+#1.将b表inv改为name
+library("reshape")
+names(b)[1]<-"NAME"
+#2.纵向合并两张表
+total<-rbind(a,b)
+#选出一个cerno对应两个不同的name的cerno
+library(plyr)
+x <- ddply(total,.(CERNO),summarise,name_inv=paste(NAME, collapse=','))
+#删除重复值
+a<-a[!duplicated(a[,c(1,2)]),]
+b<-b[!duplicated(b[,c(1,2)]),]
+#将数据导出
+write.table(a,"E:/working/e_pri_person.txt",sep = ",")
+write.table(b,"E:/working/e_inv_investment.txt",sep = ",")
