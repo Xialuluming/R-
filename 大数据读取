@@ -1,0 +1,44 @@
+library("ff")
+library("data.table")
+if(!suppressWarnings(require(ffbase))){
+  install.packages("ffbase")
+  require(ffbase)
+}
+a<-read.table.ffdf(x=NULL,#这个要设置，否则会报错，因为初次读取不追加，所以NULL
+                         file = "E:/working/e_pri_person.txt",#假如大数据集csv文件存放在此目录下
+                         FUN = "read.table",#读取csv文件的函数
+                         sep=",",#csv文件的字段分隔符
+                         header=TRUE,#表头
+                         nrows=-1,#读取csv文件的多少行数据，-1代表全部读取
+                         first.rows=1000,#第一批读取多少行
+                         next.rows=NULL,#接下来读取多少行
+                         colClasses="factor",#可以在读取时指定每列的数据类型，如c("factor","integer","numeric")
+                         fill=TRUE
+)
+b<-read.table.ffdf(x=NULL,#这个要设置，否则会报错，因为初次读取不追加，所以NULL
+                   file = "E:/working/e_inv_investment.txt",#假如大数据集csv文件存放在此目录下
+                   FUN = "read.table",#读取csv文件的函数
+                   sep=",",#csv文件的字段分隔符
+                   header=TRUE,#表头
+                   nrows=-1,#读取csv文件的多少行数据，-1代表全部读取
+                   first.rows=1000,#第一批读取多少行
+                   next.rows=NULL,#接下来读取多少行
+                   colClasses="factor",#可以在读取时指定每列的数据类型，如c("factor","integer","numeric")
+                   fill=TRUE
+)
+
+a<-read.table.ffdf(x=NULL,#这个要设置，否则会报错，因为初次读取不追加，所以NULL
+                      file = "E:/working/e_pri_person.txt",#假如大数据集csv文件存放在此目录下
+                      FUN = "read.table",#读取csv文件的函数
+                      sep=",",#csv文件的字段分隔符
+                      header=T,#表头
+                      nrows=-1,#读取csv文件的多少行数据，-1代表全部读取
+                      first.rows=1000,#第一批读取多少行
+                      next.rows=NULL,#接下来读取多少行
+                      fill=TRUE
+)
+setwd("E:/working")
+a <- read.table.ffdf(file = "e_pri_person.txt", header = T,  sep = ",",colClasses="factor")
+b <- read.table.ffdf(file = "e_inv_investment.txt", header = T,  sep = ",")
+
+a<- fread(file = "e_inv_investment.txt", header = T,  sep = ",")
